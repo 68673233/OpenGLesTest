@@ -27,6 +27,14 @@
         android:layout_marginStart="8dp"
         android:text="btnT"
         app:layout_constraintStart_toEndOf="@+id/btnBi" />
+    <Button
+        android:id="@+id/btnface"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="人脸识别"
+        app:layout_constraintStart_toEndOf="@+id/btnT"
+         />
 
     <ImageView
         android:id="@+id/image"
@@ -48,5 +56,7 @@
         android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"></LinearLayout>
+
+
 
 </android.support.constraint.ConstraintLayout>
