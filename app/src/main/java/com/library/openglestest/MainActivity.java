@@ -21,12 +21,19 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.library.openglestest.svm.SVMUtils;
+import com.library.openglestest.svm.SvmTrain;
+
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
 import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 
@@ -34,10 +41,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final String TAG = MainActivity.class.getSimpleName();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
         final ImageView image = findViewById(R.id.image);
         image.setImageResource(R.drawable.renlan);
         final ImageView image2 = findViewById(R.id.image2);
+
         //region opencv 图像处理
         Button btnBi = findViewById(R.id.btnBi);
         btnBi.setText("opencv滤波");
@@ -95,6 +107,131 @@ public class MainActivity extends AppCompatActivity {
         });
         //endregion
 
+        //region fft
+        Button btnFFT=findViewById(R.id.btn_fft);
+        btnFFT.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                 Bitmap bitmap=fft();
+                 if (bitmap!=null) image2.setImageBitmap(bitmap);
+
+            }
+        });
+        //endregion
+
+        //region svm训练
+        String trainXmlPathFile=this.getFilesDir()+"/num.xml";
+        //region
+//        SVMUtils.delFiles(this,this.getFilesDir()+"/0");
+//        SVMUtils.delFiles(this,this.getFilesDir()+"/1");
+        //endregion
+
+          //将正本图片进行分隔保存
+//         SVMUtils.spliteBitmap(this);
+//        SVMUtils.spliteBitmap(this,0);
+//        SVMUtils.spliteBitmap(this,1);
+        SvmTrain svmTrain=new SvmTrain(this);
+//        //训练成xml
+//        trainXmlPathFile= svmTrain.trainToXml();
+//        //查看保存的路径是否存在
+//        File[] file=this.getFilesDir().listFiles();
+        //加载文件进行测试
+
+        Bitmap bitmap=Bitmap.createBitmap(20,20, Bitmap.Config.ARGB_8888);
+        Canvas canvas=new Canvas(bitmap);
+        Paint paint=new Paint();
+        paint.setColor(Color.BLACK);
+        paint.setStrokeWidth(3);
+        paint.setStyle(Paint.Style.STROKE);
+//        canvas.drawLine(10,0,10,20,paint);
+        canvas.drawPaint(paint);
+        paint.setColor(Color.WHITE);
+        canvas.drawRect(4,4,14,14,paint);
+image2.setImageBitmap(bitmap);
+       // boolean b= svmTrain.recognition(trainXmlPathFile,bitmap);
+
+//        boolean b=svmTrain.recognition(trainXmlPathFile,this.getFilesDir()+"/0/1.jpg");
+//        int count=svmTrain.recognitionFiles(trainXmlPathFile,this.getFilesDir()+"/2");
+       // Toast.makeText(this,"结果："+b,Toast.LENGTH_SHORT).show();
+        //endregion
+    }
+
+    /**
+     * 明天 打印出来频域，相位等信息
+     * 另外把黑白转成彩色怎么搞的。
+     * @return
+     */
+    private Bitmap fft(){
+        Mat src=new Mat();
+        Mat des=new Mat();
+
+        Bitmap bitmap1 = BitmapFactory.decodeResource(this.getResources(), R.drawable.renlan);
+        Bitmap bitmap = bitmap1.copy(Bitmap.Config.ARGB_8888, true);
+        Utils.bitmapToMat(bitmap, src);
+        Imgproc.cvtColor(src, src, Imgproc.COLOR_BGRA2BGR);
+        Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
+
+        int m= Core.getOptimalDFTSize(src.rows());
+        int n=Core.getOptimalDFTSize(src.cols());
+        //扩充图像
+        Core.copyMakeBorder(src,des,0,m-src.rows(),0,n-src.cols(),Core.BORDER_CONSTANT, Scalar.all(0));
+        Log.d(TAG, "fft() called:"+des.toString()+",srcRow:"+src.rows()+",cols:"+src.cols());
+        List<Mat> planes =new ArrayList<>();//添加维度，用于存储傅立叶变换的结果
+
+        Mat dess=new Mat();
+        des.convertTo(dess,CvType.CV_32F);
+        planes.add(dess);
+        planes.add(Mat.zeros(des.size(), CvType.CV_32F));
+        Mat complexI=new Mat();
+        Core.merge(planes,complexI);//合并通道
+        Log.d(TAG, "fft() called complexI:"+complexI.toString());
+        //离散傅立叶变换
+        Core.dft(complexI,complexI/*,Core.DFT_INVERSE*/);
+        //将存储在complexI的结果分解到planes[0],planes[1]中
+        Core.split(complexI,planes);
+        //计算幅值  log(1 + sqrt(Re(DFT(I))^2 + Im(DFT(I))^2))
+        Core.magnitude(planes.get(0),planes.get(1),planes.get(0));
+
+        //0是实部 1是虚部
+        Mat magnitudeImage = planes.get(0);
+        Core.add(magnitudeImage,Scalar.all(1),magnitudeImage);
+        Log.d(TAG, "fft() called:"+Arrays.toString(magnitudeImage.get(magnitudeImage.rows()/2,magnitudeImage.cols()/2)));
+        Core.log(magnitudeImage,magnitudeImage);//用对数表示
+        Log.d(TAG, "fft() called:"+Arrays.toString(magnitudeImage.get(magnitudeImage.rows()/2,magnitudeImage.cols()/2)));
+//        //如果有奇数行或列，则对频谱进行裁剪
+        magnitudeImage = magnitudeImage.adjustROI(0,0,magnitudeImage.cols() & -2,magnitudeImage.rows() & -2);
+
+        int cx = magnitudeImage.cols()/2;
+        int cy = magnitudeImage.rows()/2;
+        Mat q0=new Mat(magnitudeImage, new Rect(0,0,cx,cy));
+        Mat q1=new Mat(magnitudeImage,new Rect(cx,0,cx,cy));
+        Mat q2=new Mat(magnitudeImage,new Rect(0,cy,cx,cy));
+        Mat q3=new Mat(magnitudeImage,new Rect(cx,cy,cx,cy));
+        Mat tmp=new Mat();
+        q0.copyTo(tmp);
+        q3.copyTo(q0);
+        tmp.copyTo(q3);
+        q1.copyTo(tmp);
+        q2.copyTo(q1);
+        tmp.copyTo(q2);
+        Core.normalize(magnitudeImage,magnitudeImage,0,1,Core.NORM_MINMAX);//归一化
+        Mat invDFT,invDFTcvt;
+        Core.idft(complexI, des, Core.DFT_SCALE | Core.DFT_REAL_OUTPUT );//离散傅立叶逆变换
+
+        des.convertTo(des, CvType.CV_8U);
+        bitmap = Bitmap.createBitmap(des.cols(), des.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(des, bitmap);
+
+        //归一化后，颜色值变为0~1，不能正常显示，要乘以颜色值255
+        Core.multiply(magnitudeImage,Scalar.all(255),magnitudeImage);
+        Log.d(TAG, "fft() called:"+Arrays.toString(magnitudeImage.get(cy,cx)));
+        magnitudeImage.convertTo(magnitudeImage,CvType.CV_8U);
+        Log.d(TAG, "fft() called:"+Arrays.toString(magnitudeImage.get(cy,cx)));
+        Utils.matToBitmap(magnitudeImage,bitmap);
+        int[] buff=new int[bitmap.getWidth()*bitmap.getHeight()];
+        bitmap.getPixels(buff,0,bitmap.getWidth(),0,0,bitmap.getWidth(),bitmap.getHeight());
+        Log.d(TAG, "fft() called+"+ Arrays.toString(buff));
+        return bitmap;
     }
 
     private Bitmap initLoadOpenCVLibs() {
@@ -183,6 +320,10 @@ public class MainActivity extends AppCompatActivity {
         return bitmap;
     }
 
+    /**
+     * 人脸识别
+     * @return
+     */
     private Bitmap face() {
         boolean success = OpenCVLoader.initDebug();
         if (success) {

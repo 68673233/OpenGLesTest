@@ -15,7 +15,7 @@ import org.opencv.ml.StatModel;
 
 public class SVM extends StatModel {
 
-    protected SVM(long addr) { super(addr); }
+    public SVM(long addr) { super(addr); }
 
     // internal usage only
     public static SVM __fromPtr__(long addr) { return new SVM(addr); }

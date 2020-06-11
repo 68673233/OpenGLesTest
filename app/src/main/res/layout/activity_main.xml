@@ -33,8 +33,17 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:text="人脸识别"
-        app:layout_constraintStart_toEndOf="@+id/btnT"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btn"
          />
+    <Button
+        android:id="@+id/btn_fft"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FFT"
+        app:layout_constraintTop_toBottomOf="@+id/btn"
+        app:layout_constraintLeft_toRightOf="@+id/btnface"
+        />
 
     <ImageView
         android:id="@+id/image"
